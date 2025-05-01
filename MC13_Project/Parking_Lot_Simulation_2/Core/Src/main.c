@@ -19,10 +19,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "gpio.h"
-
+#include "stm32f4xx.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 volatile uint32_t parking_space_remain = 200;
+volatile uint8_t exit_flag = 0;
+volatile uint8_t entrance_flag = 0;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +45,9 @@ volatile uint32_t parking_space_remain = 200;
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+void exit_led(void);
+void entrance_led(void);
+void display_parking_info(void);
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -106,10 +110,10 @@ int main(void)
   	RCC -> AHB1ENR  = 0x04;						// Configure Port C
   	RCC -> AHB1ENR |= 0x02;						// Configure Port B
 
-	//RCC-> AHB1ENR = 0x40;						// Configure Port G, Port B, Port A, and Port C
-	//GPIOG -> MODER |= 0x24000000;				// Configure PG13 and PG14 as output
-  	//GPIOG -> ODR |= 0x00002000;				// On board LED PG13 - testing
-  	//GPIOG -> ODR |= 0x00004000;				// On board LED PG14 - testing
+	RCC-> AHB1ENR  |= 0x40;						// Configure Port G, Port B, Port A, and Port C
+	GPIOG -> MODER |= 0x24000000;				// Configure PG13 and PG14 as output
+  	GPIOG -> ODR |= 0x00002000;				// On board LED PG13 - testing
+  	GPIOG -> ODR |= 0x00004000;				// On board LED PG14 - testing
 
 	GPIOC -> MODER &= 0xFFFFFFF0;				// Mask the irrelevant pins
 	GPIOC -> MODER |= 0x00000000;				// Configure PC0 and PC1 as input pins
@@ -118,10 +122,33 @@ int main(void)
 	GPIOB -> MODER |= 0x00000050;				// Configure PB2 and PB3 as output pins
 	GPIOB -> PUPDR |= 0x000000A0; 				// Pull down PB2 and PB3 (Optional)
 
-	//EXTI ->
-	//NVIC_EnableIRQ(EXTI15_10_IIRQn);
+	RCC -> APB2ENR = 0x4000;
+	SYSCFG -> EXTICR[0] = 0x0022;
+	EXTI -> IMR = 0x0003;
+	EXTI -> RTSR = 0x0003;
+	NVIC_EnableIRQ(EXTI0_IRQn);
+	NVIC_EnableIRQ(EXTI1_IRQn);
 	// Sensors are active low: If Input States are HIGH -> NO DETECTION
 	// If Input States are HIGH: Exit/ Entrance LEDs are not lit
+	while(1){
+		/*
+		GPIOG -> ODR |= 0x00002000;				// On board LED PG13 - testing
+		HAL_Delay(500);
+		GPIOG -> ODR &= ~(0x00002000);				// On board LED PG13 - testing
+		HAL_Delay(500);*/
+		display_parking_info();
+
+		if(exit_flag == 1){
+			exit_led();
+		}
+		if(entrance_flag == 1){
+			entrance_led();
+		}
+	}
+
+
+	// Deprecated
+	/*
   while (1)
   {
 	if((GPIOC -> IDR & (1<<0)) == 0b00000000)
@@ -147,7 +174,7 @@ int main(void)
 		GPIOB->ODR &= (0 << 3);
 	}
 
-  }
+  }*/
   /* USER CODE END 3 */
 }
 
@@ -193,7 +220,24 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void exit_led(void){
+			GPIOB->ODR |= (1 << 2);
+			HAL_Delay(1000);
+			GPIOB->ODR &= (0 << 2);
+			exit_flag = 0;
+}
 
+void entrance_led(void){
+			GPIOB->ODR |= (1 << 3);
+			HAL_Delay(1000);
+			GPIOB->ODR &= (0 << 3);
+			entrance_flag = 0;
+}
+
+void display_parking_info(void){
+
+		// TODO
+}
 /* USER CODE END 4 */
 
 /**
