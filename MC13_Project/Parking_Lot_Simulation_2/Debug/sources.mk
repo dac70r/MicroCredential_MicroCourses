@@ -24,5 +24,6 @@ C_DEPS :=
 SUBDIRS := \
 Core/Src \
 Core/Startup \
+Core/TM1637 \
 Drivers/STM32F4xx_HAL_Driver/Src \
 

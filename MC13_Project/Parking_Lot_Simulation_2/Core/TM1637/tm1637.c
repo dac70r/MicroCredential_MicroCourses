@@ -36,20 +36,33 @@ static void set_data_pin_output(void) {
 }
 
 void tm1637_init(GPIO_TypeDef* clk_port, uint16_t clk_pin, GPIO_TypeDef* data_port, uint16_t data_pin) {
+
     CLK_PORT = clk_port;
     CLK_PIN = clk_pin;
     DIO_PORT = data_port;
     DIO_PIN = data_pin;
-
+/*
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
     GPIO_InitStruct.Pin = CLK_PIN | DIO_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(CLK_PORT, &GPIO_InitStruct);
 
     HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, GPIO_PIN_SET); */
+
+	// Register Equivalent Setup of PB6 and PB7
+	GPIOB -> MODER &= 0xFFFF0FFF;				// Configure PB6 and PB7 as output pins
+	GPIOB -> MODER |= 0x00005000;				// Configure PB6 and PB7 as output pins
+	GPIOB -> PUPDR |= 0x0000A000; 				// Pull down PB6 and PB7 (Optional)
+
+    GPIOB->OTYPER &= ~(1 << 6);              // 0 = Push-pull, 1 = Open-drain
+    GPIOB->OTYPER &= ~(1 << 7);              // 0 = Push-pull, 1 = Open-drain
+
+	GPIOB->OSPEEDR &= ~0x0000F000;         // Low speed (optional)
+	GPIOB -> ODR |= 0x00C0;						// Set PB6 and PB7 as HIGH */
 }
 
 static void tm1637_start(void) {
@@ -129,6 +142,9 @@ void tm1637_show_digits(const char *str) {
             if (str[i] == ':') {
                 data[2] |= 0x80;
             }
+            else{
+            	data[2] &= ~(0x80);
+            }
         } else {
             uint8_t seg = 0;
             if (str[i] >= '0' && str[i] <= '9') {
@@ -140,3 +156,36 @@ void tm1637_show_digits(const char *str) {
 
     tm1637_write(data, 5);
 }
+
+void tm1637_show_segments(const uint8_t segments[4]) {
+    uint8_t command1 = 0x40;  // Auto-increment mode
+    uint8_t command2 = 0xC0;  // Start at address 0
+    uint8_t data[5];
+
+    // Write display mode
+    tm1637_write(&command1, 1);
+
+    // Prepare address + 4 bytes of data
+    data[0] = command2;
+    data[1] = segments[0];
+    data[2] = segments[1];
+    data[3] = segments[2];
+    data[4] = segments[3];
+
+    tm1637_write(data, 5);
+}
+
+void uint8_to_spaced_string(uint8_t value, char *output) {
+	// Insert space between hundreds and tens
+	uint8_t hundreds = value / 100;
+	uint8_t tens = (value / 10) % 10;
+	uint8_t ones = value % 10;
+
+	output[0] = ' ';
+	output[1] = '0' + hundreds;
+	output[2] = ' ';
+	output[3] = '0' + tens;
+	output[4] = '0' + ones;
+	output[5] = '\0';
+}
+

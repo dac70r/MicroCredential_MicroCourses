@@ -19,17 +19,24 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "gpio.h"
-#include "stm32f4xx.h"
+#include "../TM1637/tm1637.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-volatile uint32_t parking_space_remain = 200;
+volatile uint32_t parking_space_remain = 10;
 volatile uint8_t exit_flag = 0;
 volatile uint8_t entrance_flag = 0;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+uint8_t name[4] = { SEG_D, SEG_E, SEG_N, SEG_N };
+uint8_t help[4] = { SEG_H, SEG_E, SEG_L, SEG_P };
+uint8_t full0[4] = {SEG_F, SEG_SPACE, SEG_SPACE, SEG_SPACE };
+uint8_t full1[4] = {SEG_F, SEG_U, SEG_SPACE, SEG_SPACE };
+uint8_t full2[4] = {SEG_F, SEG_U, SEG_L, SEG_SPACE };
+uint8_t full3[4] = {SEG_F, SEG_U, SEG_L, SEG_L };
+char str[6];
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -89,7 +96,7 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
+  //MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
 
 
@@ -128,9 +135,35 @@ int main(void)
 	EXTI -> RTSR = 0x0003;
 	NVIC_EnableIRQ(EXTI0_IRQn);
 	NVIC_EnableIRQ(EXTI1_IRQn);
+
+	// Initialize TM1637: Clock -> PB6, Data -> PB7
+	tm1637_init(GPIOB, GPIO_PIN_6, GPIOB, GPIO_PIN_7);
+
+	// Set brightness (1-8)
+	tm1637_set_brightness(5);
+
+	tm1637_show_segments(name);  // Displays Name
+	HAL_Delay(1000);
+
+
 	// Sensors are active low: If Input States are HIGH -> NO DETECTION
 	// If Input States are HIGH: Exit/ Entrance LEDs are not lit
 	while(1){
+
+		if(parking_space_remain == 0){
+			tm1637_show_segments(full0);  // Displays Name
+			HAL_Delay(500);
+			tm1637_show_segments(full1);  // Displays Name
+			HAL_Delay(500);
+			tm1637_show_segments(full2);  // Displays Name
+			HAL_Delay(500);
+			tm1637_show_segments(full3);  // Displays Name
+			HAL_Delay(500);
+		}
+		else{
+			uint8_to_spaced_string(parking_space_remain, str);
+			tm1637_show_digits(str);
+		}
 		/*
 		GPIOG -> ODR |= 0x00002000;				// On board LED PG13 - testing
 		HAL_Delay(500);

@@ -1,0 +1,13 @@
+../Core/TM1637/tm1637.c:17:13:tm1637_delay	2
+../Core/TM1637/tm1637.c:22:13:set_data_pin_input	1
+../Core/TM1637/tm1637.c:30:13:set_data_pin_output	1
+../Core/TM1637/tm1637.c:38:6:tm1637_init	1
+../Core/TM1637/tm1637.c:68:13:tm1637_start	1
+../Core/TM1637/tm1637.c:76:13:tm1637_stop	1
+../Core/TM1637/tm1637.c:87:16:tm1637_get_ack	1
+../Core/TM1637/tm1637.c:101:13:tm1637_write_byte	2
+../Core/TM1637/tm1637.c:112:13:tm1637_write	2
+../Core/TM1637/tm1637.c:121:6:tm1637_set_brightness	3
+../Core/TM1637/tm1637.c:132:6:tm1637_show_digits	6
+../Core/TM1637/tm1637.c:160:6:tm1637_show_segments	1
+../Core/TM1637/tm1637.c:178:6:uint8_to_spaced_string	1
