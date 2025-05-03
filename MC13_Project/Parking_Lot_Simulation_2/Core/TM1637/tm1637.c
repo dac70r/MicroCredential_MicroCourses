@@ -1,13 +1,6 @@
 #include "tm1637.h"
 #include "string.h"
 
-#define CLOCK_DELAY_US 5
-
-static GPIO_TypeDef* CLK_PORT;
-static uint16_t CLK_PIN;
-static GPIO_TypeDef* DIO_PORT;
-static uint16_t DIO_PIN;
-
 static const uint8_t digit_to_segment[] = {
     0x3f, 0x06, 0x5b, 0x4f,
     0x66, 0x6d, 0x7d, 0x07,
@@ -19,101 +12,65 @@ static void tm1637_delay(void) {
     for (volatile int i = 0; i < 50; i++);
 }
 
-static void set_data_pin_input(void) {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin = DIO_PIN;
-    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(DIO_PORT, &GPIO_InitStruct);
-}
-
-static void set_data_pin_output(void) {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin = DIO_PIN;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(DIO_PORT, &GPIO_InitStruct);
-}
-
-void tm1637_init(GPIO_TypeDef* clk_port, uint16_t clk_pin, GPIO_TypeDef* data_port, uint16_t data_pin) {
-
-    CLK_PORT = clk_port;
-    CLK_PIN = clk_pin;
-    DIO_PORT = data_port;
-    DIO_PIN = data_pin;
-/*
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-    GPIO_InitStruct.Pin = CLK_PIN | DIO_PIN;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(CLK_PORT, &GPIO_InitStruct);
-
-    HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, GPIO_PIN_SET); */
-
-	// Register Equivalent Setup of PB6 and PB7
-	GPIOB -> MODER &= 0xFFFF0FFF;				// Configure PB6 and PB7 as output pins
-	GPIOB -> MODER |= 0x00005000;				// Configure PB6 and PB7 as output pins
-	GPIOB -> PUPDR |= 0x0000A000; 				// Pull down PB6 and PB7 (Optional)
-
-    GPIOB->OTYPER &= ~(1 << 6);              // 0 = Push-pull, 1 = Open-drain
-    GPIOB->OTYPER &= ~(1 << 7);              // 0 = Push-pull, 1 = Open-drain
-
-	GPIOB->OSPEEDR &= ~0x0000F000;         // Low speed (optional)
-	GPIOB -> ODR |= 0x00C0;						// Set PB6 and PB7 as HIGH */
+void tm1637_delay_long(uint32_t how_long) {
+    // Should be replaced with a more accurate delay
+    for (volatile uint32_t i = 0; i < how_long; i++);
 }
 
 static void tm1637_start(void) {
-    HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_SET);
+
+	GPIOB -> ODR |= 0x0080;						// HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, GPIO_PIN_SET);
+	GPIOB -> ODR |= 0x0040;						// HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_SET);
     tm1637_delay();
-    HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, GPIO_PIN_RESET);
+    GPIOB -> ODR &= 0xFF7F;						// HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, GPIO_PIN_RESET);
     tm1637_delay();
 }
 
 static void tm1637_stop(void) {
-    HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_RESET);
-    tm1637_delay();
-    HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, GPIO_PIN_RESET);
-    tm1637_delay();
-    HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_SET);
-    tm1637_delay();
-    HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, GPIO_PIN_SET);
-    tm1637_delay();
-}
-
-static uint8_t tm1637_get_ack(void) {
-    uint8_t ack;
-
-    HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_RESET);
-    set_data_pin_input();
-    tm1637_delay();
-    ack = HAL_GPIO_ReadPin(DIO_PORT, DIO_PIN);
-    HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_SET);
-    tm1637_delay();
-    HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_RESET);
-    set_data_pin_output();
-    return ack;
+	GPIOB->ODR &= ~(1 << 6);   					// PB6 LOW (CLK)
+	tm1637_delay();
+	GPIOB->ODR &= ~(1 << 7);   					// PB7 LOW (DIO)
+	tm1637_delay();
+	GPIOB->ODR |=  (1 << 6);   					// PB6 HIGH (CLK)
+	tm1637_delay();
+	GPIOB->ODR |=  (1 << 7);   					// PB7 HIGH (DIO)
+	tm1637_delay();
 }
 
 static void tm1637_write_byte(uint8_t b) {
     for (uint8_t i = 0; i < 8; i++) {
-        HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(DIO_PORT, DIO_PIN, (b & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    	GPIOB->ODR &= ~(1 << 6);   					// PB6 LOW (CLK) - HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_RESET);
+    	if(b & 0x01){
+    		GPIOB->ODR |=  (1 << 7);   				// PB7 HIGH (DIO)
+    	}
+    	else{
+    		GPIOB->ODR &= ~(1 << 7);   				// PB7 LOW (DIO)
+    	}
         tm1637_delay();
-        HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_SET);
+        GPIOB->ODR |=  (1 << 6);   					// PB6 HIGH (CLK) - HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_SET);
         tm1637_delay();
         b >>= 1;
     }
+}
+
+static uint8_t tm1637_get_ack(void) {
+    uint8_t ack=0;
+    GPIOB->ODR &= ~(1 << 6);					// HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_RESET);
+    											// set_data_pin_input();
+    tm1637_delay();
+    											// ack = HAL_GPIO_ReadPin(DIO_PORT, DIO_PIN);
+    GPIOB->ODR |=  (1 << 6);					// HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_SET);
+    tm1637_delay();
+    GPIOB->ODR &= ~(1 << 6);					// HAL_GPIO_WritePin(CLK_PORT, CLK_PIN, GPIO_PIN_RESET);
+    											// set_data_pin_output();
+    return ack;
 }
 
 static void tm1637_write(uint8_t *data, uint8_t len) {
     tm1637_start();
     for (uint8_t i = 0; i < len; i++) {
         tm1637_write_byte(data[i]);
-        tm1637_get_ack();
+        tm1637_get_ack();						// data not read
     }
     tm1637_stop();
 }
@@ -188,4 +145,6 @@ void uint8_to_spaced_string(uint8_t value, char *output) {
 	output[4] = '0' + ones;
 	output[5] = '\0';
 }
+
+
 
